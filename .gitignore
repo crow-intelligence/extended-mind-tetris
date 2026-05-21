@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# uv
+# Keep uv.lock checked in for reproducible builds
+
+# Build / dist
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Caches
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.mypy_cache/
+.ty_cache/
+
+# Training outputs
+models/
+data/
+runs/
+logs/
+tensorboard/
+
+# IDE / editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# etc
+#./claude

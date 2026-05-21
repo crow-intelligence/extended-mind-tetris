@@ -1,0 +1,73 @@
+[project]
+name = "epistemic-arcade"
+version = "0.1.0"
+description = "Data-generation backend for the Epistemic Arcade visual essay (Clark & Chalmers' Extended Mind, via PPO Tetris)."
+authors = [
+    { name = "Zoltan Varju", email = "zoltan.varju@crowintelligence.org" },
+]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "gymnasium>=0.29",
+    "numpy>=1.26",
+    "stable-baselines3>=2.3",
+]
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.100",
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "ty>=0.0.1a1",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.7,<0.12.0"]
+build-backend = "uv_build"
+
+# ---------------------------------------------------------------------------
+# ruff
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",   # pycodestyle / pyflakes
+    "I",             # isort
+    "B",             # bugbear
+    "UP",            # pyupgrade
+    "D",             # pydocstyle
+    "ANN",           # flake8-annotations
+]
+ignore = [
+    "D203",  # one-blank-line-before-class (conflicts with D211)
+    "D213",  # multi-line-summary-second-line (conflicts with D212)
+    "ANN401",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "ANN"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests", "src"]
+addopts = "--doctest-modules -ra"
+filterwarnings = [
+    "ignore::DeprecationWarning:gymnasium.*",
+    "ignore::DeprecationWarning:stable_baselines3.*",
+]
+
+# ---------------------------------------------------------------------------
+# ty (Astral type checker)
+# ---------------------------------------------------------------------------
+[tool.ty.src]
+include = ["src"]
