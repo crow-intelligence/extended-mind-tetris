@@ -187,6 +187,32 @@ code {
   margin-top: 2rem;
 }
 
+.step ul {
+  list-style: square;
+  padding-left: 1.4rem;
+  margin: 0 0 1.2rem 0;
+  color: var(--text-main);
+}
+
+.step li {
+  margin-bottom: 0.5rem;
+}
+
+.step a {
+  color: var(--accent-green);
+  text-decoration: none;
+  border-bottom: 1px dotted rgba(57, 255, 20, 0.6);
+}
+
+.step a:hover {
+  border-bottom-style: solid;
+}
+
+.step cite {
+  font-style: italic;
+  color: var(--text-main);
+}
+
 .phosphor {
   color: var(--accent-green);
   text-shadow: 0 0 4px rgba(57, 255, 20, 0.5);
@@ -298,35 +324,6 @@ code {
   max-height: 100%;
 }
 
-.insert-coin {
-  position: absolute;
-  right: 12%;
-  top: 50%;
-  transform: translateY(-50%);
-  font-family: var(--font-retro);
-  font-size: 1.8rem;
-  color: var(--accent-green);
-  letter-spacing: 0.1em;
-  text-shadow:
-    0 0 8px rgba(57, 255, 20, 0.6),
-    0 0 18px rgba(57, 255, 20, 0.25);
-  opacity: 0;
-  transition: opacity 0.4s ease;
-  animation: blink 1.2s steps(1, end) infinite;
-  pointer-events: none;
-  white-space: nowrap;
-}
-
-.insert-coin.visible {
-  opacity: 1;
-}
-
-@keyframes blink {
-  50% {
-    opacity: 0.15;
-  }
-}
-
 .loading-checkpoint {
   position: absolute;
   left: 50%;
@@ -393,7 +390,6 @@ code {
 
 @media (prefers-reduced-motion: reduce) {
   .loading,
-  .insert-coin,
   .loading-checkpoint {
     animation: none;
   }

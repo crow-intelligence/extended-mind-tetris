@@ -7,13 +7,13 @@
  * applies a "CRT-reboot" fade between checkpoint swaps, and renders the
  * final Chart.js line chart comparing the agents' epistemic rates.
  *
- * Page must be served with the *project root* as the document root so the
- * relative ../data/*.json fetches resolve correctly. See web/README.md.
+ * The web/ folder is self-contained: serve it with web/ as the document root
+ * and the relative data/*.json fetches resolve correctly. See web/README.md.
  * --------------------------------------------------------------------------- */
 
 const TELEMETRY_URLS = {
-  alpha: "../data/telemetry_alpha.json",
-  beta: "../data/telemetry_beta.json",
+  alpha: "data/telemetry_alpha.json",
+  beta: "data/telemetry_beta.json",
 };
 
 const COLORS = {
@@ -41,6 +41,9 @@ const PIECE_COLOR = {
 const FPS_DEFAULT = 15;
 const CRT_FADE_MS = 400;
 const CRT_HOLD_MS = 220;
+
+const LOADING_TEXT_INITIAL = "[ LOADING… ]";
+const LOADING_TEXT_SWAP = "[ LOADING CHECKPOINT… ]";
 const GHOST_QUEUE_LEN = 2;
 const GHOST_ALPHA = 0.3;
 const CELL_PX = 20;
@@ -170,7 +173,7 @@ function diffCells(curr, prev) {
 }
 
 /* ---------------------------------------------------------------------------
- * Step 1 synthetic: a single T-block rotating
+ * Steps 1 & 2 synthetic: a single T-block rotating on Alpha
  * --------------------------------------------------------------------------- */
 
 function drawSpinningT(ctx, orientation) {
@@ -182,27 +185,6 @@ function drawSpinningT(ctx, orientation) {
   for (const [dr, dc] of offsets) {
     drawCell(ctx, anchorR + dr, anchorC + dc, COLORS.magenta);
   }
-}
-
-/* ---------------------------------------------------------------------------
- * Step 2 synthetic: a static "completed" board snapshot + INSERT COIN overlay
- * --------------------------------------------------------------------------- */
-
-function drawCompletedBoard(ctx, agent) {
-  // Use the final frame of the highest-reward sample at epoch 1_000_000 as a
-  // representative "completed" board: it's full of locked stack.
-  const samples = state.telemetry[agent]?.sample_games?.filter(
-    (g) => g.metadata.epoch === 1_000_000,
-  );
-  const game = samples?.[0];
-  if (!game || !game.game_frames.length) {
-    clearBoard(ctx);
-    return;
-  }
-  const frame = game.game_frames[game.game_frames.length - 1];
-  const decoded = decodeBoard(frame.board_state);
-  clearBoard(ctx);
-  drawDecodedBoard(ctx, decoded, COLORS.green);
 }
 
 /* ---------------------------------------------------------------------------
@@ -291,18 +273,16 @@ let canvasBeta;
 function tick(nowMs) {
   const step = state.activeStep;
 
-  if (step === 1) {
-    // Single T-block rotating; one rotation per 800ms.
+  if (step === 1 || step === 2) {
+    // Synthetic intro: a single T-block rotating on Alpha to illustrate the
+    // very thing Kirsh & Maglio describe in step 2. Beta stays dark until the
+    // real epoch playback begins at step 3.
     const elapsed = nowMs - state.tBlockLastChangeMs;
     if (elapsed >= 800) {
       state.tBlockOrientation = (state.tBlockOrientation + 1) % 4;
       state.tBlockLastChangeMs = nowMs;
     }
     drawSpinningT(ctxAlpha, state.tBlockOrientation);
-    clearBoard(ctxBeta);
-  } else if (step === 2) {
-    // Static completed board on Alpha; Beta blank (INSERT COIN overlay handled in CSS).
-    drawCompletedBoard(ctxAlpha, "alpha");
     clearBoard(ctxBeta);
   } else if (step === 3 || step === 4 || step === 5) {
     // Autonomous playback loop: rAF drives the wall clock, frame index advances
@@ -335,20 +315,26 @@ const EPOCH_LABEL = {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Single source of truth for every visual flag the controller toggles. Every
+// setStep branch (and every crtReboot phase) calls this with the full desired
+// state, so a fast back-scroll mid-transition can never leave a stale overlay.
+function normalizeChrome({ loadingCheckpoint, chartWrap, agentPair, fading }) {
+  document.querySelector(".loading-checkpoint").classList.toggle("visible", loadingCheckpoint);
+  document.querySelector(".chart-wrap").classList.toggle("visible", chartWrap);
+  const pair = document.querySelector(".agent-pair");
+  pair.classList.toggle("hidden", !agentPair);
+  pair.classList.toggle("fading", fading);
+}
+
 async function setStep(n) {
   if (state.activeStep === n) return;
   state.activeStep = n;
   const token = ++state.transitionToken;
 
-  const agentPair = document.querySelector(".agent-pair");
-  const chartWrap = document.querySelector(".chart-wrap");
-  const insertCoin = document.querySelector(".insert-coin");
   const epochLabel = document.getElementById("epoch-label");
 
   if (n === 1) {
-    chartWrap.classList.remove("visible");
-    agentPair.classList.remove("hidden", "fading");
-    insertCoin.classList.remove("visible");
+    normalizeChrome({ loadingCheckpoint: false, chartWrap: false, agentPair: true, fading: false });
     epochLabel.textContent = "intro";
     canvasBeta.style.opacity = "0";
     canvasAlpha.style.opacity = "1";
@@ -356,20 +342,16 @@ async function setStep(n) {
     return;
   }
   if (n === 2) {
-    chartWrap.classList.remove("visible");
-    agentPair.classList.remove("hidden", "fading");
-    insertCoin.classList.add("visible");
-    epochLabel.textContent = "demo";
+    normalizeChrome({ loadingCheckpoint: false, chartWrap: false, agentPair: true, fading: false });
+    epochLabel.textContent = "DEMO";
     canvasBeta.style.opacity = "0";
     canvasAlpha.style.opacity = "1";
     state.currentEpoch = null;
     return;
   }
   if (n === 6) {
-    insertCoin.classList.remove("visible");
-    agentPair.classList.remove("fading");
-    agentPair.classList.add("hidden");
-    chartWrap.classList.add("visible");
+    // The Data step is not a checkpoint — no diegetic overlay, just swap to chart.
+    normalizeChrome({ loadingCheckpoint: false, chartWrap: true, agentPair: false, fading: false });
     epochLabel.textContent = "1 M timesteps";
     ensureChart();
     state.currentEpoch = null;
@@ -381,22 +363,21 @@ async function setStep(n) {
 }
 
 async function crtReboot(epoch, token) {
-  const agentPair = document.querySelector(".agent-pair");
-  const chartWrap = document.querySelector(".chart-wrap");
-  const insertCoin = document.querySelector(".insert-coin");
   const epochLabel = document.getElementById("epoch-label");
-  const loadingCheckpoint = document.querySelector(".loading-checkpoint");
+  const loadingEl = document.querySelector(".loading-checkpoint");
 
-  // Reset chrome so the agent pair is the live surface again.
-  insertCoin.classList.remove("visible");
-  chartWrap.classList.remove("visible");
-  agentPair.classList.remove("hidden");
+  // First entry from a synthetic step (currentEpoch is null) is an *initial*
+  // load, not a checkpoint swap: show a simple "LOADING…" and skip the hold.
+  // Real epoch-to-epoch swaps (3↔4, 4↔5) get "LOADING CHECKPOINT…" plus the
+  // extra hold so the diegetic reboot reads deliberately.
+  const isFirstLoad = state.currentEpoch == null;
+  loadingEl.textContent = isFirstLoad ? LOADING_TEXT_INITIAL : LOADING_TEXT_SWAP;
+
   canvasAlpha.style.opacity = "1";
   canvasBeta.style.opacity = "1";
 
-  // 1. Fade the canvas wrapper to opacity 0 over CRT_FADE_MS; show LOADING text.
-  agentPair.classList.add("fading");
-  loadingCheckpoint.classList.add("visible");
+  // 1. Fade the canvas wrapper to opacity 0 and reveal the LOADING overlay.
+  normalizeChrome({ loadingCheckpoint: true, chartWrap: false, agentPair: true, fading: true });
   epochLabel.textContent = EPOCH_LABEL[epoch];
 
   // 2. Wait for the fade-out to complete.
@@ -411,31 +392,30 @@ async function crtReboot(epoch, token) {
   state.currentEpoch = epoch;
   state.lastTickMs = performance.now();
 
-  // Hold LOADING briefly so the diegetic reboot reads.
-  await sleep(CRT_HOLD_MS);
-  if (token !== state.transitionToken) return;
+  if (!isFirstLoad) {
+    await sleep(CRT_HOLD_MS);
+    if (token !== state.transitionToken) return;
+  }
 
-  // 4. Fade canvas back in.
-  loadingCheckpoint.classList.remove("visible");
-  agentPair.classList.remove("fading");
+  // 4. Hide the overlay and fade the canvas back in.
+  normalizeChrome({ loadingCheckpoint: false, chartWrap: false, agentPair: true, fading: false });
 }
 
 function initObserver() {
   const sections = document.querySelectorAll(".step");
+  // Centerline trigger band: a section is "active" iff it crosses the middle
+  // 10% strip of the viewport. With min-height: 90vh sections, exactly one
+  // step ever sits on the centerline — no flapping between adjacent sections
+  // during fast scroll, exactly one setStep call per direction.
   const observer = new IntersectionObserver(
     (entries) => {
-      // Pick the entry that's most in-view.
-      let best = null;
       for (const e of entries) {
         if (!e.isIntersecting) continue;
-        if (!best || e.intersectionRatio > best.intersectionRatio) best = e;
-      }
-      if (best) {
-        const stepNum = Number(best.target.dataset.step);
-        setStep(stepNum);
+        setStep(Number(e.target.dataset.step));
+        return;
       }
     },
-    { threshold: [0.25, 0.5, 0.75] },
+    { rootMargin: "-45% 0px -45% 0px", threshold: 0 },
   );
   sections.forEach((s) => observer.observe(s));
 }

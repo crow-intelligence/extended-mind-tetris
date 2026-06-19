@@ -33,6 +33,10 @@ runs/
 logs/
 tensorboard/
 
+# ...but the self-contained web essay carries its own telemetry copy
+!web/data/
+!web/data/*.json
+
 # IDE / editors
 .vscode/
 .idea/
