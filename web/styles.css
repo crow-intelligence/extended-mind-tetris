@@ -408,16 +408,89 @@ code {
 
   .layout {
     grid-template-columns: 1fr;
+    padding: 0 1rem;
   }
 
+  /* Flip render order: visual on top, prose below. */
   .visual {
-    position: relative;
-    top: auto;
-    height: 70vh;
-    margin-bottom: 3rem;
+    order: 1;
+    position: sticky;
+    top: 0;
+    height: 50vh;
+    z-index: 10;
+    background: var(--page-bg);
+    padding: 0.5rem 0;
+    /* Soft under-shadow so prose scrolling under reads as an underlap. */
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.7);
+  }
+
+  .prose {
+    order: 2;
+    padding-top: 1.5rem;
+    padding-bottom: 4rem;
+  }
+
+  /* Let the frame shape follow its content on mobile (drop the 5:4 CRT ratio). */
+  .visual-frame {
+    aspect-ratio: unset;
+    max-width: min(94vw, 480px);
+    max-height: 100%;
+    padding: 0.4rem;
+  }
+
+  .agent-pair {
+    gap: 1rem;
+    padding: 0.4rem;
+  }
+
+  /* Size canvases by height so two fit side-by-side within the sticky band on
+     narrow viewports. !important overrides the inline canvas.style.width/height
+     that setupCanvas() writes; width:auto follows the intrinsic 1:2 ratio. */
+  .agent-cell canvas {
+    height: min(42vh, 320px) !important;
+    width: auto !important;
+  }
+
+  .agent-cell figcaption {
+    font-size: 0.95rem;
+  }
+
+  .step {
+    min-height: auto;
+    padding: 2.5rem 0;
   }
 
   .masthead h1 {
-    font-size: 2.8rem;
+    font-size: 2.4rem;
+  }
+
+  .step h2 {
+    font-size: 1.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .visual {
+    height: 48vh;
+  }
+
+  .agent-cell canvas {
+    height: min(38vh, 260px) !important;
+  }
+
+  .agent-cell figcaption {
+    font-size: 0.85rem;
+  }
+
+  .step h2 {
+    font-size: 1.6rem;
+  }
+
+  .step p {
+    font-size: 0.95rem;
+  }
+
+  .step {
+    padding: 2rem 0;
   }
 }
